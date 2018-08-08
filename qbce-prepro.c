@@ -303,12 +303,28 @@ find_and_mark_blocked_clauses(QBCEPrepro *qr) {
 }
 
 int findAndMarkBlockedClauses(QBCEPrepro *qr, int iterator) {
-    VarID varsCount = qr->pcnf.size_vars;
-    Var *var = qr->pcnf.vars;
-    unsigned int cnt = qr->pcnf.scopes.cnt;
-    Scope *scope = qr->pcnf.scopes.first;
+    //VarID varsCount = qr->pcnf.size_vars;
+    //Var *var = qr->pcnf.vars;
+    //unsigned int scopeCount = qr->pcnf.scopes.cnt;
+
     int total = 0;
-    for (int i = 1; i < varsCount; i++) {
+    for(Scope *scopes = qr->pcnf.scopes.first; scopes; scopes = scopes->link.next){
+        unsigned int nesting = scopes->nesting;
+        QuantifierType type = scopes->type;
+        if(type != QTYPE_EXISTS)
+            continue;
+        VarIDStack stack = scopes->vars;
+        size_t varCount = COUNT_STACK(stack);
+        VarID *vars = stack.start;
+        for(int j=0; j< varCount; j++){
+            int mark = considerAndMark(qr, vars[j], 0);
+            total+=mark ;
+            mark = considerAndMark(qr, vars[j], 1);
+            total+=mark ;
+        }
+
+    }
+    /*for (int i = 1; i < varsCount; i++) {
         if (SCOPE_EXISTS(var[i].scope)) {
             //printf("variable %d has existential scope\n", var[i].id);
             int mark = considerAndMark(qr, var[i].id, 0);
@@ -316,7 +332,7 @@ int findAndMarkBlockedClauses(QBCEPrepro *qr, int iterator) {
             mark = considerAndMark(qr, var[i].id, 1);
             total+=mark ;
         }
-    }
+    }*/
     return total;
 }
 
