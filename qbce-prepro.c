@@ -57,7 +57,21 @@
 
 void printVariablesOfClause(const Clause *clause);
 
-VarID *getIntersectionOf(ClausePtrStack *stack, VarID varID, int * size);
+VarID *getIntersectionOf(ClausePtrStack *stack, VarID varID, int *size);
+
+void oldMethod(const Var *var, int i);
+
+static int isVariableBlockingInClause(QBCEPrepro *qr, Clause *pClause, int i, int isNegative);
+
+static int isVariableInCommon(Clause *pClause, Clause *clause, int id);
+
+void markBlockedForStack(const QBCEPrepro *qr, int i, ClausePtrStack *stack);
+
+int findAndMarkBlockedClauses(const QBCEPrepro *qr, int iterator);
+
+int considerAndMark(const QBCEPrepro *pPrepro, VarID id, int isNegative);
+
+int markAllClauseWithVariable(const QBCEPrepro *pPrepro, VarID id);
 
 /* Print error message. */
 static void
@@ -269,8 +283,8 @@ time_stamp() {
    flag 'c->blocked' should be set to '1' (true). */
 static void
 find_and_mark_blocked_clauses(QBCEPrepro *qr) {
+    /*VarID varsCount = qr->pcnf.size_vars;
     printf("%d\n", qr->cnt_blocked_clauses);
-    VarID varsCount = qr->pcnf.size_vars;
     printf("Number of variables: %d\n", varsCount);
     printf("Number of clauses: %d\n", qr->pcnf.clauses.cnt);
     unsigned int scopeCount = qr->pcnf.scopes.cnt;
@@ -280,51 +294,28 @@ find_and_mark_blocked_clauses(QBCEPrepro *qr) {
         printVariablesOfClause(clause);
         clause = clause->link.next;
     }
-    printf("\n\n\n");
+    printf("\n\n\n");*/
 
-    Var *var = qr->pcnf.vars;
-    for (int i = 1; i < varsCount; i++) {
-        if (SCOPE_EXISTS(var[i].scope)) {
-            printf("variable %d has existential scope\n", var[i].id);
-            ClausePtrStack negativeStack = var[i].neg_occ_clauses;
-            VarID id = var[i].id;
-            int size ;
-            VarID *intersections = getIntersectionOf(&negativeStack, id, &size);
-            ClausePtrStack posetiveStack = var[i].pos_occ_clauses;
-            Clause **pClause = *posetiveStack.start;
-            int count = COUNT_STACK(posetiveStack);
-            for(int j =0; j, count; j++){
-                Clause *clause = pClause[j];
-                if(clause->blocked)
-                    continue;
-                int clauseSize = clause->num_lits;
+    int iterator = 1;
+    int blockedCount;
+    do {
+        blockedCount = findAndMarkBlockedClauses(qr, iterator);
+        printf("There exist %d blocked clauses in iteration %d\n", blockedCount, iterator);
+        iterator++;
+    } while (blockedCount > 0);
 
-                for(int k = 0; k < clauseSize; k++){
-                    /*
-                     * If intersections contain variable j and j<i then clause is blocked
-                     */
-                    int contained =0;
-                    for(int l=0; l< size;l++){
-                        if(intersections[l]<0)
-                            continue;
-                        if((intersections[l]==abs(clause->lits[k]))&&(l<i)){
-                            contained = 1 ;
-                            break;
-                        }
-                    }
-
-                    if(contained) {
-                        /*
-                         * Set the clause as blocked
-                         */
-                        clause->blocked=1 ;
-                    }
-
-                }
-            }
+    //int counter = 0;
+    Clause *clause = qr->pcnf.clauses.first;
+    while (clause) {
+        if ((clause->mark)&&(!clause->blocked)){
+            qr->cnt_blocked_clauses++;
+            clause->mark = 0;
+            clause->blocked = 1;
+            iterator++;
         }
+        clause = clause->link.next;
     }
-
+    
 
     //List all existential variables
     //Sort all existential variables
@@ -341,42 +332,220 @@ find_and_mark_blocked_clauses(QBCEPrepro *qr) {
     //ABORT_APP (1, "TO BE IMPLEMENTED!");
 }
 
+int findAndMarkBlockedClauses(const QBCEPrepro *qr, int iterator) {
+    VarID varsCount = qr->pcnf.size_vars;
+    Var *var = qr->pcnf.vars;
+    int total = 0;
+    for (int i = 1; i < varsCount-1; i++) {
+        if (SCOPE_EXISTS(var[i].scope)) {
+            //printf("variable %d has existential scope\n", var[i].id);
+            int mark = considerAndMark(qr, var[i].id, 0);
+            total+=mark ;
+            mark = considerAndMark(qr, var[i].id, 1);
+            total+=mark ;
+        }
+    }
+    return total;
+}
+
+int considerAndMark(const QBCEPrepro * qr, VarID id, int isNegative) {
+    Var *vars = qr->pcnf.vars;
+    ClausePtrStack stack = vars[id].pos_occ_clauses;
+    if(isNegative)
+        stack = vars[id].neg_occ_clauses;
+    else
+        stack = vars[id].pos_occ_clauses;
+    int count = COUNT_STACK((stack));
+    int total = 0;
+    Clause **pClause = stack.start;
+    for (int j = 0; j < count; j++) {
+        Clause *clause = pClause[j];
+        if (clause->blocked)
+            continue;
+        if(isVariableBlockingInClause(qr, clause, id, isNegative)){
+            //int counter = markAllClauseWithVariable(qr, id);
+            //return 1;
+            if(!clause->mark) {
+                total += 1;
+                clause->mark=1;
+            }
+        }
+    }
+    return total;
+
+}
+
+int markAllClauseWithVariable(const QBCEPrepro *qr, VarID id) {
+    Var *vars = qr->pcnf.vars;
+    int markCounter = 0;
+    /*ClausePtrStack stack = vars[id].pos_occ_clauses;
+    int count = COUNT_STACK((stack));
+    Clause **pClause = stack.start;
+    for (int j = 0; j < count; j++) {
+        Clause *clause = pClause[j];
+        if((!clause->blocked)&&(!clause->mark)) {
+            clause->mark = 1;
+            markCounter++;
+        }
+    }*/
+
+    ClausePtrStack stack = vars[id].neg_occ_clauses;
+    int count = COUNT_STACK((stack));
+    Clause **pClause = stack.start;
+    for (int j = 0; j < count; j++) {
+        Clause *clause = pClause[j];
+        if((!clause->blocked)&&(!clause->mark)) {
+            clause->mark = 1;
+            markCounter++;
+        }
+    }
+    return markCounter ;
+}
+
+void markBlockedForStack(const QBCEPrepro *qr, int i, ClausePtrStack *stack) {
+    int count = COUNT_STACK((*stack));
+    Clause **pClause = (*stack).start;
+    for (int j = 0; j < count; j++) {
+        Clause *clause = pClause[j];
+        if (clause->blocked)
+            continue;
+        isVariableBlockingInClause(qr, clause, i, 0);
+        //if (isVariableBlockingInClause(qr, clause, i)) {
+        //    printf("Clause with id %d will be blocked with blocking literal %d\n", clause->id, i);
+            //clause->blocked=1;
+        //    clause->mark = 1;
+        //}
+    }
+}
+
+static int isVariableBlockingInClause(QBCEPrepro *qr, Clause *pClause, int varId, int isNegative) {
+    ClausePtrStack stack ;
+    if(isNegative)
+        stack = qr->pcnf.vars[varId].pos_occ_clauses;
+    else
+        stack = qr->pcnf.vars[varId].neg_occ_clauses;
+    size_t count = COUNT_STACK(stack);
+    Clause **neg = stack.start;
+    //printf("Neg stack size is %d \n", count);
+    for (int i = 0; i < count; i++) {
+        Clause *clause = neg[i];
+        if (clause->blocked)
+            continue;
+        if (!isVariableInCommon(pClause, clause, varId)) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+static int isVariableInCommon(Clause *pClause, Clause *clause, int id) {
+    unsigned int size1 = pClause->num_lits;
+    int *vars1 = pClause->lits;
+    unsigned int size2 = clause->num_lits;
+    LitID *vars2 = clause->lits;
+    for (int i = 0; i < size1; i++) {
+        int var1 = vars1[i];
+        if (abs(var1) >= id)
+            continue;
+        for (int j = 0; j < size2; j++) {
+            //if(vars2[j]>0)
+            //    continue;
+            int var2 = vars2[j];
+            if (var2 == -1 * var1)
+                return 1;
+        }
+    }
+    return 0;
+}
+
+void oldMethod(const Var *var, int i) {
+    ClausePtrStack negativeStack = var[i].neg_occ_clauses;
+    VarID id = var[i].id;
+    int size;
+    VarID *intersections = getIntersectionOf(&negativeStack, id, &size);
+    printf("The intersection is provided with size %d\n", size);
+    ClausePtrStack posetiveStack = var[i].pos_occ_clauses;
+    Clause **pClause = posetiveStack.start;
+    int count = COUNT_STACK(posetiveStack);
+    for (int j = 0; j < count; j++) {
+        Clause *clause = pClause[j];
+        if (!clause) {
+            printf("Clause is null");
+            continue;
+        }
+        if (clause->blocked)
+            continue;
+        int clauseSize = clause->num_lits;
+        printf("clause id is %d and clause->blocked is %d with size %d\n", clause->id, clause->blocked, clauseSize);
+
+        for (int k = 0; k < clauseSize; k++) {
+            /*
+             * If intersections contain variable j and j<i then clause is blocked
+             */
+            int contained = 0;
+            LitID variableK = clause->lits[k];
+            printf("variable k  has value %d\n", variableK);
+            for (int l = 0; l < size; l++) {
+                if (intersections[l] < 0)
+                    continue;
+                if (l < i)
+                    continue;
+
+                if ((intersections[l] == abs(variableK))) {
+                    contained = 1;
+                    break;
+                }
+            }
+
+            if (contained) {
+                /*
+                 * Set the clause as blocked
+                 */
+                printf("Setting clause with id %d to blocked\n", clause->id);
+                clause->blocked = 1;
+            }
+
+        }
+    }
+}
+
 
 // #define DECLARE_DLIST(name, type)					\
 //  struct name ## List {type * first; type * last; unsigned int cnt;};	\
 //  typedef struct name ## List name ## List				\
 
-VarID *getIntersectionOf(ClausePtrStack *stack, VarID varID, int * size) {
+VarID *getIntersectionOf(ClausePtrStack *stack, VarID varID, int *size) {
     int count = COUNT_STACK((*stack));
     printf("clause count is  %d \n", count);
     Clause **pClause = (*stack).start;
-    DECLARE_DLIST(intersection, VarID);
+    //DECLARE_DLIST(intersection, VarID);
     //intersectionList.
-    int loopCounter = 0 ;
-    while(pClause[loopCounter++]->blocked);
+    int loopCounter = 0;
+    while (pClause[loopCounter++]->blocked);
+    loopCounter--;
     Clause *clause = pClause[loopCounter];
     *size = clause->num_lits;
-    int intersections[*size] ;
+    int intersections[*size];
     //int intersectionFlag[si]
-    for(int i =0; i < *size ; i++)
+    for (int i = 0; i < *size; i++)
         intersections[i] = abs(clause->lits[i]);
 
-    for (int i = loopCounter+1; i < count; i++) {
+    for (int i = loopCounter + 1; i < count; i++) {
         Clause *clause = pClause[i];
-        if(clause->blocked)
+        if (clause->blocked)
             continue;
         int sz = clause->num_lits;
 
-        for(int j = 0; j < *size; j++){
-            int contained=0;
-            for(int k =0; k< sz; k++){
-                if (intersections[j]==abs(clause->lits[k])){
-                    contained=1;
+        for (int j = 0; j < *size; j++) {
+            int contained = 0;
+            for (int k = 0; k < sz; k++) {
+                if (intersections[j] == abs(clause->lits[k])) {
+                    contained = 1;
                     break;
                 }
             }
-            if(!contained)
-                intersections[i]=-1;
+            if (!contained)
+                intersections[i] = -1;
         }
     }
 
@@ -384,8 +553,8 @@ VarID *getIntersectionOf(ClausePtrStack *stack, VarID varID, int * size) {
      * TODO just printing
      * */
     printf("Intersection is ");
-    for(int i=0; i < *size; i++){
-        if(intersections[i]>0)
+    for (int i = 0; i < *size; i++) {
+        if (intersections[i] > 0)
             printf("%d\t", intersections[i]);
     }
     printf("\n");
