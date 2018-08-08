@@ -59,19 +59,14 @@ void printVariablesOfClause(const Clause *clause);
 
 VarID *getIntersectionOf(ClausePtrStack *stack, VarID varID, int *size);
 
-void oldMethod(const Var *var, int i);
 
 static int isVariableBlockingInClause(QBCEPrepro *qr, Clause *pClause, int i, int isNegative);
 
-static int isVariableInCommon(Clause *pClause, Clause *clause, int id);
+static int isVariableInCommon(QBCEPrepro *qr, Clause *pClause, Clause *clause, int id);
 
-void markBlockedForStack(const QBCEPrepro *qr, int i, ClausePtrStack *stack);
+int findAndMarkBlockedClauses(QBCEPrepro *qr, int iterator);
 
-int findAndMarkBlockedClauses(const QBCEPrepro *qr, int iterator);
 
-int considerAndMark(const QBCEPrepro *pPrepro, VarID id, int isNegative);
-
-int markAllClauseWithVariable(const QBCEPrepro *pPrepro, VarID id);
 
 /* Print error message. */
 static void
@@ -283,18 +278,6 @@ time_stamp() {
    flag 'c->blocked' should be set to '1' (true). */
 static void
 find_and_mark_blocked_clauses(QBCEPrepro *qr) {
-    /*VarID varsCount = qr->pcnf.size_vars;
-    printf("%d\n", qr->cnt_blocked_clauses);
-    printf("Number of variables: %d\n", varsCount);
-    printf("Number of clauses: %d\n", qr->pcnf.clauses.cnt);
-    unsigned int scopeCount = qr->pcnf.scopes.cnt;
-    printf("Number of scopes: %d\n", scopeCount);
-    Clause *clause = qr->pcnf.clauses.first;
-    while (clause) {
-        printVariablesOfClause(clause);
-        clause = clause->link.next;
-    }
-    printf("\n\n\n");*/
 
     int iterator = 1;
     int blockedCount;
@@ -302,41 +285,30 @@ find_and_mark_blocked_clauses(QBCEPrepro *qr) {
         blockedCount = findAndMarkBlockedClauses(qr, iterator);
         printf("There exist %d blocked clauses in iteration %d\n", blockedCount, iterator);
         iterator++;
+
+        /*Clause *clause = qr->pcnf.clauses.first;
+        while (clause) {
+            if ((clause->mark)&&(!clause->blocked)){
+                qr->cnt_blocked_clauses++;
+                clause->mark = 0;
+                clause->blocked = 1;
+            }
+            clause = clause->link.next;
+        }*/
     } while (blockedCount > 0);
 
-    //int counter = 0;
-    Clause *clause = qr->pcnf.clauses.first;
-    while (clause) {
-        if ((clause->mark)&&(!clause->blocked)){
-            qr->cnt_blocked_clauses++;
-            clause->mark = 0;
-            clause->blocked = 1;
-            iterator++;
-        }
-        clause = clause->link.next;
-    }
+
     
-
-    //List all existential variables
-    //Sort all existential variables
-    //While(true){
-    //for each variable b in ext{
-    //if(blocking is possible){
-    //block clause
-    //start from scratch(continue while)
-    //}
-    //}
-    //exit while
-    //}
-
     //ABORT_APP (1, "TO BE IMPLEMENTED!");
 }
 
-int findAndMarkBlockedClauses(const QBCEPrepro *qr, int iterator) {
+int findAndMarkBlockedClauses(QBCEPrepro *qr, int iterator) {
     VarID varsCount = qr->pcnf.size_vars;
     Var *var = qr->pcnf.vars;
+    unsigned int cnt = qr->pcnf.scopes.cnt;
+    Scope *scope = qr->pcnf.scopes.first;
     int total = 0;
-    for (int i = 1; i < varsCount-1; i++) {
+    for (int i = 1; i < varsCount; i++) {
         if (SCOPE_EXISTS(var[i].scope)) {
             //printf("variable %d has existential scope\n", var[i].id);
             int mark = considerAndMark(qr, var[i].id, 0);
@@ -348,9 +320,9 @@ int findAndMarkBlockedClauses(const QBCEPrepro *qr, int iterator) {
     return total;
 }
 
-int considerAndMark(const QBCEPrepro * qr, VarID id, int isNegative) {
+int considerAndMark(QBCEPrepro * qr, VarID id, int isNegative) {
     Var *vars = qr->pcnf.vars;
-    ClausePtrStack stack = vars[id].pos_occ_clauses;
+    ClausePtrStack stack ;
     if(isNegative)
         stack = vars[id].neg_occ_clauses;
     else
@@ -363,59 +335,13 @@ int considerAndMark(const QBCEPrepro * qr, VarID id, int isNegative) {
         if (clause->blocked)
             continue;
         if(isVariableBlockingInClause(qr, clause, id, isNegative)){
-            //int counter = markAllClauseWithVariable(qr, id);
-            //return 1;
-            if(!clause->mark) {
                 total += 1;
-                clause->mark=1;
-            }
+                clause->blocked=1;
+                qr->cnt_blocked_clauses++;
         }
     }
     return total;
 
-}
-
-int markAllClauseWithVariable(const QBCEPrepro *qr, VarID id) {
-    Var *vars = qr->pcnf.vars;
-    int markCounter = 0;
-    /*ClausePtrStack stack = vars[id].pos_occ_clauses;
-    int count = COUNT_STACK((stack));
-    Clause **pClause = stack.start;
-    for (int j = 0; j < count; j++) {
-        Clause *clause = pClause[j];
-        if((!clause->blocked)&&(!clause->mark)) {
-            clause->mark = 1;
-            markCounter++;
-        }
-    }*/
-
-    ClausePtrStack stack = vars[id].neg_occ_clauses;
-    int count = COUNT_STACK((stack));
-    Clause **pClause = stack.start;
-    for (int j = 0; j < count; j++) {
-        Clause *clause = pClause[j];
-        if((!clause->blocked)&&(!clause->mark)) {
-            clause->mark = 1;
-            markCounter++;
-        }
-    }
-    return markCounter ;
-}
-
-void markBlockedForStack(const QBCEPrepro *qr, int i, ClausePtrStack *stack) {
-    int count = COUNT_STACK((*stack));
-    Clause **pClause = (*stack).start;
-    for (int j = 0; j < count; j++) {
-        Clause *clause = pClause[j];
-        if (clause->blocked)
-            continue;
-        isVariableBlockingInClause(qr, clause, i, 0);
-        //if (isVariableBlockingInClause(qr, clause, i)) {
-        //    printf("Clause with id %d will be blocked with blocking literal %d\n", clause->id, i);
-            //clause->blocked=1;
-        //    clause->mark = 1;
-        //}
-    }
 }
 
 static int isVariableBlockingInClause(QBCEPrepro *qr, Clause *pClause, int varId, int isNegative) {
@@ -431,21 +357,27 @@ static int isVariableBlockingInClause(QBCEPrepro *qr, Clause *pClause, int varId
         Clause *clause = neg[i];
         if (clause->blocked)
             continue;
-        if (!isVariableInCommon(pClause, clause, varId)) {
+        if (!isVariableInCommon(qr, pClause, clause, varId)) {
             return 0;
         }
     }
     return 1;
 }
 
-static int isVariableInCommon(Clause *pClause, Clause *clause, int id) {
+static int isVariableInCommon(QBCEPrepro *qr, Clause *pClause, Clause *clause, int id) {
     unsigned int size1 = pClause->num_lits;
     int *vars1 = pClause->lits;
     unsigned int size2 = clause->num_lits;
+    //qdpll_get_nesting_of_var
+    unsigned int nesting1 = qr->pcnf.vars[id].scope->nesting;
     LitID *vars2 = clause->lits;
     for (int i = 0; i < size1; i++) {
         int var1 = vars1[i];
-        if (abs(var1) >= id)
+        //if (abs(var1) >= id)
+        unsigned int nesting2 = qr->pcnf.vars[abs(var1)].scope->nesting;
+        if(abs(var1)==id)
+            continue;
+        if(nesting2>nesting1)
             continue;
         for (int j = 0; j < size2; j++) {
             //if(vars2[j]>0)
