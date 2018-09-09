@@ -287,14 +287,21 @@ find_and_mark_blocked_clauses(QBCEPrepro *qr) {
      */
     for(int i=0; i<sizeVar;i++){
         /*
-         * To check if the positive literal is blocking one
+         * The blocking literals are being checked only for variables having existential scopes
          */
-        vars[i].mark0=1;
+        if ((vars[i].scope!=0)&&(SCOPE_EXISTS(vars[i].scope))) {
+            /*
+             * To check if the positive literal is blocking one
+             */
+            vars[i].mark0 = 1;
+            //VAR_POS_MARK(vars[i]);
 
-        /*
-         * To check if the negative literal is blocking one
-         */
-        vars[i].mark1=1;
+            /*
+             * To check if the negative literal is blocking one
+             */
+            vars[i].mark1 = 1;
+            //VAR_NEG_MARK(vars[i]);
+        }
     }
     
     /*
@@ -348,6 +355,7 @@ int findAndMarkBlockedClausesForMarkedVariables(QBCEPrepro *qr) {
          * If variable var[j].mark1 is true, the negative literal is considered
          */
         if(var[j].mark1) {
+        //if(VAR_NEG_MARK(var[j]) {
             mark = considerAndMark(qr, var[j].id, 0);
             numberOfBlockedClauses += mark;
         }
@@ -356,6 +364,7 @@ int findAndMarkBlockedClausesForMarkedVariables(QBCEPrepro *qr) {
          * If variable var[j].mark0 is true, the positive literal is considered
          */
         if(var[j].mark0) {
+        //if(VAR_POS_MARKED(var[j])){
             mark = considerAndMark(qr, var[j].id, 1);
             numberOfBlockedClauses += mark;
         }
@@ -445,14 +454,19 @@ int considerAndMark(QBCEPrepro * qr, VarID id, int isPosetive) {
              */
             for(int j=0; j<varCount;j++){
                 LitID var = litID[j];
-                /*
-                 * For positive literals mark0 is set to 1
-                 * For negative literals mark1 is set to 1
-                 */
-                if(var>0)
-                    qr->pcnf.vars[abs(var)].mark0=1;
-                else
-                    qr->pcnf.vars[abs(var)].mark1=1;
+                if ((vars[abs(var)].scope!=0)&&(SCOPE_EXISTS(vars[abs(var)].scope))) {
+
+                    /*
+                     * For positive literals mark0 is set to 1
+                     * For negative literals mark1 is set to 1
+                     */
+                    if (var > 0)
+                        qr->pcnf.vars[abs(var)].mark0 = 1;
+                        //VAR_POS_MARK(vars[abs(var)]);
+                    else
+                        qr->pcnf.vars[abs(var)].mark1 = 1;
+                        //VAR_NEG_MARK(vars[abs(var)]);
+                }
             }
         }
     }

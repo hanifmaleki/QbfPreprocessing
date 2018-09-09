@@ -1,0 +1,16 @@
+c 2018-08-21 12:18:34 by qbfdd.py,v 1.2.2
+c qbfdd.py /tmp/tmp-742.qdimacs /home/staff/flonsing/git/bitbucket/rerise-winter-school-2014/student-submissions-2018/maleki-QbfPreprocessing-master/check-solver-result.sh -m ddmin -g b -S
+c 
+c mode: ddmin
+c rounds: 2
+c test runs: 1480
+c time elapsed: 23.47s
+c total: clauses  : -118 (98.33%)
+c        variables: -83 (97.65%)
+c        literals : -599 (99.67%)
+c 
+p cnf 2 2
+a 1 0
+e 2 0
+-1 0
+-2 0
