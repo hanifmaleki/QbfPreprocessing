@@ -11,10 +11,10 @@ fi
 SOLVER="/home/e1528895/Programs/depqbf-version-6.03/depqbf"
 FORMULA=$1
 
-$SOLVER $FORMULA 2>/dev/null
+$SOLVER --max-secs=500 $FORMULA 2>/dev/null
 ORIGRES=$?
 
-./qbce-prepro $FORMULA --print-formula --simplify > /tmp/formula-simplify-$$-0.qdimacs 2>/dev/null 
+./qbce-prepro $FORMULA --print-formula --simplify > tmp/formula-simplify-$$-0.qdimacs 2>/dev/null 
 RES=$?
 
 # prepro failed
@@ -23,7 +23,7 @@ then
     exit $RES
 fi
 
-$SOLVER /tmp/formula-simplify-$$-0.qdimacs 2>/dev/null 
+$SOLVER --max-secs=500 tmp/formula-simplify-$$-0.qdimacs 2>/dev/null 
 PREPRORES=$?
 
 #rm -f /tmp/formula-simplify-$$-0.qdimacs
